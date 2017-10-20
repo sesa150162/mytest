@@ -1,0 +1,2048 @@
+<?xml version="1.0"?>
+
+<!--[DocumentInformation]
+Created: 2012-09-05 14:05
+Modified: 2017-10-17 10:21
+-->
+<?tgml version="1.21"?><Tgml Background="#9FA0A4"
+    BildVersion="StartDB-MenyFastighetStor-20171003-MIJA"
+    ComponentCounter="66" DisablePanAndZoom="True" GridSize="10"
+    Height="800" Stretch="Uniform" UseGlobalScripts="True" Width="240">
+    <Component Clip="False" ComponentVersion="GlobalTooltip-20160618"
+        ContentHeight="21.0" ContentWidth="100.0" Height="21.0"
+        Id="GlobalTooltip" Left="0.0" Name="" Opacity="1" Top="-25.0"
+        Visibility="Visible" Width="100.0">
+        <Rectangle Fill="#808080" Height="21.0" Left="2.0" Name="Shade"
+            Opacity="0.5" RadiusX="3.0" RadiusY="3.0" Stroke="#808080"
+            StrokeDashArray="0.0" StrokeWidth="1.0" Top="2.0"
+            Visibility="Visible" Width="100.0"/>
+        <Rectangle Fill="#FAFAFE" Height="21.0" Left="0.0" Name="Frame"
+            RadiusX="2.0" RadiusY="2.0" Stroke="#404040"
+            StrokeDashArray="0.0" StrokeWidth="1.0" Top="0.0" Width="100.0">
+            <LinearGradient Attribute="Fill" EndPoint="0.0,1.0" SpreadMethod="Pad">
+                <GradientStop Color="#FFFFFF" Offset="0"/>
+                <GradientStop Color="#FFFFFF" Offset="0.2"/>
+                <GradientStop Color="#E0E0E9" Offset="1"/>
+            </LinearGradient>
+        </Rectangle>
+        <Text FontFamily="Arial" FontSize="12" FontStyle="Normal"
+            FontWeight="Normal" HorizontalAlign="Left" Left="5.0"
+            Name="Text" Stroke="#404040" TextDecoration="None" Top="4.0">GlobalTooltip</Text>
+        <Animate Animation="Stop" Attribute="Opacity" CalcMode="Linear"
+            Duration="0.4" Freeze="True" From="1" Name="FadeOut"
+            Repeat="1" To="0"/>
+        <Animate Animation="Stop" Attribute="Opacity" CalcMode="Linear"
+            Duration="0.1" Freeze="True" From="0" Name="FadeIn"
+            Repeat="1" To="1"/>
+    </Component>
+    <Script Name="GlobalTooltip" OnDocumentLoad="onLoad"
+        OnMouseMove="onMouseMove" OnMouseOut="onMouseOut" OnMouseOver="onMouseOver"><![CDATA[/*
+  GlobalTooltip v2.0
+  -
+  Type:   Snippet
+  Author: Christian Rasmussen
+  Email:  christian.rasmussen@tac.com
+  Web:    http://skohorn.net
+  -
+  Copyright (c) 2007
+  All rights reserved
+  
+  Rewrite: Michel Jansson 2016-06-18 (2.0)
+  
+*/
+
+// OnDocumentonLoad event
+function onLoad (evt) {
+	// New tooltip
+	Tooltip = new TooltipClass(evt.getCurrentTarget().getOwnerDocument());
+}
+
+// OnMouseOver event
+function onMouseOver (evt) {
+    // Enable tooltip
+    Tooltip.over(evt);
+}
+
+// OnMouseOut event
+function onMouseOut (evt) {
+	// Disable tooltip
+	Tooltip.out();
+}
+
+// OnMouseMove event
+function onMouseMove (evt) {
+	// Move tooltip
+	Tooltip.move(evt.getScreenX(), evt.getScreenY());
+}
+
+// Tooltip class
+function TooltipClass (document) {
+    // Constants
+    var SAFETYGAP = 30;                 // Distance of tooltip from cursor
+    var TOOLTIPID = "GlobalTooltip";    // ID of tooltip component
+    var TOOLTIPMODE = "Static";         // Static / Dynamic
+    
+	// Properties
+    this.isEnabled = false;
+    this.dynamicMode = (TOOLTIPMODE == "Dynamic") ? true : false;
+    this.enableDelay = 1000;    // Delay in MS before tooltip is shown
+    this.disableDelay = 5000;   // Delay in MS before tooltip is hidden
+    
+	// Private vars
+    var that = this;    // Save this as var for timers
+    var tooltipElement = document.getElementById(TOOLTIPID); // Get tooltip element by id
+    var documentElement = document.getDocumentElement();
+    var text = tooltipElement.getChildByName("Text");
+	var shade = tooltipElement.getChildByName("Shade");
+	var frame = tooltipElement.getChildByName("Frame");
+	var fadeIn = tooltipElement.getChildByName("FadeIn");
+    var fadeOut = tooltipElement.getChildByName("FadeOut");
+    
+    var maxWidth = Number(documentElement.getAttribute("Width"));
+	var maxHeight = Number(documentElement.getAttribute("Height"));
+    var width = Number(tooltipElement.getAttribute("Width"));
+    var height = Number(tooltipElement.getAttribute("Height"));
+	var scaleWidth = width / Number(tooltipElement.getAttribute("ContentWidth"));
+	var scaleHeight = height / Number(tooltipElement.getAttribute("ContentHeight"));
+    var textMarginLeft = Number(text.getAttribute("Left"));
+    var textMarginTop = Number(text.getAttribute("Top"));
+    var textContent;
+    var tooltipX;
+    var tooltipY;
+    var willEnable = false;
+    var showTimeout;
+    var hideTimeout;
+    
+    // Init tooltip
+    fadeOut.setAttribute("Animation","Stop");
+    fadeIn.setAttribute("Animation","Stop");
+    tooltipElement.setAttribute("Opacity", 0);
+    
+    // OnMouseOver Tooltip eventHandler
+    this.over = function (evt) {
+        // Get Tooltip attribute
+        var tooltipText = String(evt.getTarget().getAttribute("Tooltip"));
+
+        // Check if there is a tooltip text
+        if (tooltipText.length > 0) {
+        
+            // Enable and move tooltip
+            this.enable(tooltipText);
+            this.move(evt.getScreenX(), evt.getScreenY());
+        }
+    }
+    
+    // OnMouseOver Tooltip eventHandler
+    this.out = function (evt) {
+        // Disable tooltip
+        this.disable();
+    }
+    
+    // OnMouseMove Tooltip eventHandler
+    this.move = function (mouseX, mouseY) {
+        // Check if move is allowed
+        if (willEnable || this.isEnabled) {
+            // Set new coorinates
+            tooltipX = mouseX;
+            tooltipY = mouseY;
+            
+            // Check mode if the tooltip should be rendered directly
+            if (this.dynamicMode)
+                render(null);
+            //else we will wait to render until showTimer triggers
+        }
+    }
+	
+    
+	// Enable tooltip
+    this.enable = function (tooltipText) {
+        willEnable = true;
+        
+        // Show tooltip after delay
+        showTimeout = setTimeout(function(){
+             
+            // Render and position the tooltip
+            render(tooltipText);
+            
+            // Show the tooltip
+            fadeOut.setAttribute("Animation","Stop");
+            fadeIn.setAttribute("Animation","Start");
+            
+            // Set tooltip status
+            that.isEnabled = true;
+            willEnable = false;
+            
+            // Start timer to hide tooltip after long time
+            hideTimeout = setTimeout(function(){ that.disable(); }, that.disableDelay);
+        }, this.enableDelay);
+    }
+	
+	// Disable tooltip
+	this.disable = function () {
+        // Check that we have anything to disable
+        if(willEnable) {
+            // Reset timers
+            if (showTimeout != null) {
+                clearTimeout(showTimeout);
+                showTimeout = null;
+            }
+            
+            // Set tooltip status
+            willEnable = false;
+        }
+        if(this.isEnabled) {
+            // Hide tooltip
+            fadeIn.setAttribute("Animation","Stop");
+            fadeOut.setAttribute("Animation","Start");
+            
+            // Reset timers
+            if (hideTimeout != null) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+            // Set tooltip status
+            this.isEnabled = false;
+        }
+	}
+    
+	// Render tooltip
+	var render = function (tooltipText) {
+        // Get zoom if possible
+        var zoomLevel = (typeof view != "undefined") ? view.zoomLevel : 1;
+    
+        // Check if tooltip text has changed
+        if (tooltipText != null && textContent != tooltipText) {
+            // Save tooltip text
+            textContent = tooltipText;
+
+            // Update text
+            text.setAttribute("Content", textContent);
+
+            // Calculate tooltip size
+            var tooltipWidth = text.getBoundingBox().get_Width() + textMarginLeft * 2;
+            var tooltipHeight = text.getBoundingBox().get_Height() + textMarginTop * 2;
+            width = (tooltipWidth * scaleWidth) / zoomLevel;
+            height = (tooltipHeight * scaleHeight) / zoomLevel;
+
+            // Set tooltip size
+            frame.setAttribute("Width", tooltipWidth);
+            frame.setAttribute("Height", tooltipHeight);
+            shade.setAttribute("Width", tooltipWidth);
+            shade.setAttribute("Height", tooltipHeight);
+            tooltipElement.setAttribute("ContentWidth", tooltipWidth);
+            tooltipElement.setAttribute("ContentHeight", tooltipHeight);
+            tooltipElement.setAttribute("Width", width);
+            tooltipElement.setAttribute("Height", height);
+        }
+            
+        // Calculate left and top position
+        var left = (tooltipX + width < maxWidth) ? tooltipX : tooltipX - width;
+        var top = (tooltipY + (SAFETYGAP / zoomLevel) + height < maxHeight) ? tooltipY + (SAFETYGAP / zoomLevel) : tooltipY - ((SAFETYGAP/2) / zoomLevel) - height;
+        
+        // Set new position
+        tooltipElement.setAttribute("Left", left);
+        tooltipElement.setAttribute("Top", top);
+        
+        // Place ontop
+        documentElement.appendChild(tooltipElement);
+	}
+}]]></Script>
+    <Script Name="AlignAndSort" OnDocumentLoad="OnLoad"><![CDATA[// Radar upp och placerar komponenter om de skulle råkat blivit flyttade
+
+function OnLoad(evt)
+{
+	var nodeList = evt.getCurrentTarget().getChildNodes();
+	if (nodeList.getLength() > 0) {
+		for (var i=0; i<nodeList.getLength(); i++) {
+			var current = nodeList.item(i);
+			
+			// Fasta platser
+			if (current.getAttribute("Id") == "LänkÖversikt") {
+				current.setAttribute("Left", "5");
+				current.setAttribute("Top", "12");
+			}
+			if (current.getAttribute("Id") == "LänkOmråde") {
+				current.setAttribute("Left", "5");
+				current.setAttribute("Top", "40");
+			}
+			if (current.getAttribute("Id") == "Linje") {
+				current.setAttribute("Left", "44");
+				current.setAttribute("Top", "77");
+			}
+			if (current.getAttribute("Id") == "LänkFastighet") {
+				current.setAttribute("Left", "5");
+				current.setAttribute("Top", "82");
+			}
+			if (current.getAttribute("Id") == "Linje2") {
+				current.setAttribute("Left", "44");
+				current.setAttribute("Top", "135");
+			}
+			if (current.getAttribute("Id") == "MenyScroll") {
+				current.setAttribute("Left", "0");
+				current.setAttribute("Top", "135");
+			}
+		}
+	}
+}]]></Script>
+    <Component Clip="False" ContentHeight="26" ContentWidth="230.0"
+        Height="26.0" Id="LänkÖversikt" Left="5.0" Name="Översikt"
+        Tooltip="Gå till översikt" Top="12.0" Visibility="Visible" Width="230.0">
+        <TextBox FontFamily="Arial" FontSize="22" FontStyle="Normal"
+            FontWeight="Bold" Height="26.0" HorizontalAlign="Center"
+            Left="0.0" Name="Text" Opacity="1.0" Stroke="#FFFFFF"
+            TextDecoration="None" Top="0.0" VerticalAlign="Middle" Width="230.0"><![CDATA[Översikt]]></TextBox>
+        <Script Name="EffectsAndInvoke" OnDocumentLoad="onLoad"
+            OnMouseClick="onMouseClick" OnMouseDown="onMouseDown"
+            OnMouseMove="" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp"><![CDATA[var fontSize = 0;
+function onLoad(evt){ fontSize = evt.getCurrentTarget().getChildByName("Text").getAttribute("FontSize"); }
+function onMouseClick(evt){ invoke(evt.getCurrentTarget().getElementsByTagName("Link").item(0).getFullBindName(),"OpenInParent"); }
+function onMouseOver(evt){ evt.getCurrentTarget().getChild("Text").setAttribute("TextDecoration","Underline"); }
+function onMouseOut(evt){ evt.getCurrentTarget().getChild("Text").setAttribute("TextDecoration","None"); }
+function onMouseDown(evt){ evt.getCurrentTarget().getChildByName("Text").setAttribute("FontSize", fontSize - 1); }
+function onMouseUp(evt){ evt.getCurrentTarget().getChildByName("Text").setAttribute("FontSize", fontSize); }]]></Script>
+        <Link Name="Bilder.Panel Översikt Meny.Link" PreventDefault="True"/>
+    </Component>
+    <Component Clip="False" ContentHeight="26" ContentWidth="230.0"
+        Height="26.0" Id="LänkOmråde" Left="5.0" Name="Område Norr"
+        Tooltip="Gå tillbaka till område" Top="40.0"
+        Visibility="Visible" Width="230.0">
+        <TextBox FontFamily="Arial" FontSize="22" FontStyle="Normal"
+            FontWeight="Bold" Height="26.0" HorizontalAlign="Center"
+            Left="0.0" Name="Text" Opacity="1.0" Stroke="#FFFFFF"
+            TextDecoration="None" Top="0.0" VerticalAlign="Middle"
+                Width="230.0"><![CDATA[Område Norr]]><Expose
+                ExposedAttribute="Content" Name="Område"/>
+        </TextBox>
+        <Script Name="EffectsAndInvoke" OnDocumentLoad="onLoad"
+            OnMouseClick="onMouseClick" OnMouseDown="onMouseDown"
+            OnMouseMove="" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp"><![CDATA[var fontSize = 0;
+function onLoad(evt){ fontSize = evt.getCurrentTarget().getChildByName("Text").getAttribute("FontSize"); }
+function onMouseClick(evt){ invoke(evt.getCurrentTarget().getElementsByTagName("Link").item(0).getFullBindName(),"OpenInParent"); }
+function onMouseOver(evt){ evt.getCurrentTarget().getChild("Text").setAttribute("TextDecoration","Underline"); }
+function onMouseOut(evt){ evt.getCurrentTarget().getChild("Text").setAttribute("TextDecoration","None"); }
+function onMouseDown(evt){ evt.getCurrentTarget().getChildByName("Text").setAttribute("FontSize", fontSize - 1); }
+function onMouseUp(evt){ evt.getCurrentTarget().getChildByName("Text").setAttribute("FontSize", fontSize); }]]></Script>
+        <Link Name="Bilder.Panel Område Meny.Link" PreventDefault="True"/>
+        <Expose ExposedAttribute="Name" Name="Område"/>
+    </Component>
+    <Component Clip="False" ContentHeight="0.0" ContentWidth="150.0"
+        Height="0.0" Id="Linje" Left="44.0" Name="" Top="77.0" Width="150.0">
+        <Line Opacity="1.0" Stroke="#FFFFFF" StrokeDashArray="0.0"
+            StrokeWidth="0.5" X1="0.0" X2="150.0" Y1="0.0" Y2="0.0"/>
+    </Component>
+    <Component Clip="False" ContentHeight="46.0" ContentWidth="230"
+        Height="46.0" Id="LänkFastighet" Left="5.0" Name=""
+        Tooltip="Gå till driftstatus" Top="82.0" Visibility="Visible" Width="230.0">
+        <TextBox FontFamily="Arial" FontSize="20.0" FontStyle="Normal"
+            FontWeight="Normal" Height="26.0" HorizontalAlign="Center"
+            Left="0.0" Name="FastNr" Opacity="1.0" Stroke="#FFFFFF"
+            TextDecoration="None" Top="0.0" VerticalAlign="Middle"
+                Width="230"><![CDATA[1234]]><Expose
+                ExposedAttribute="Content" Name="FastighetsNr"/>
+        </TextBox>
+        <TextBox FontFamily="Arial" FontSize="20.0" FontStyle="Normal"
+            FontWeight="Normal" Height="26.0" HorizontalAlign="Center"
+            Left="0.0" Name="FastNamn" Opacity="1.0" Stroke="#FFFFFF"
+            TextDecoration="None" Top="20.0" VerticalAlign="Middle"
+                Width="230"><![CDATA[Fastighet B]]><Expose
+                ExposedAttribute="Content" Name="FastNamn"/>
+        </TextBox>
+        <Script Name="VisualEffects" OnDocumentLoad="onLoad"
+            OnMouseClick="onMouseClick" OnMouseDown="onMouseDown"
+            OnMouseMove="" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp"><![CDATA[var fontSize = 0;
+
+function onLoad(evt)
+{
+	var comp = evt.getCurrentTarget();
+	fontSize = comp.getChildByName("FastNamn").getAttribute("FontSize");
+	
+	// Centrera fastighetsnamnet om fastighetsnummer saknas
+	if (comp.getChild("FastNr").getAttribute("Content") == "")
+		comp.getChild("FastNamn").setAttribute("Top", 10);
+}
+
+function onMouseClick(evt)
+{
+	invoke(evt.getCurrentTarget().getElementsByTagName("Link").item(0).getFullBindName(),"OpenInWorkarea");	
+}
+
+function onMouseOver(evt)
+{
+	var comp = evt.getCurrentTarget();	
+	comp.getChild("FastNr").setAttribute("TextDecoration","Underline");
+	comp.getChild("FastNamn").setAttribute("TextDecoration","Underline");
+}
+
+function onMouseOut(evt)
+{
+	var comp = evt.getCurrentTarget();
+	comp.getChild("FastNr").setAttribute("TextDecoration","None");
+	comp.getChild("FastNamn").setAttribute("TextDecoration","None");
+}
+
+function onMouseDown(evt)
+{
+	var comp = evt.getCurrentTarget();
+	comp.getChildByName("FastNr").setAttribute("FontSize", fontSize - 1);
+	comp.getChildByName("FastNamn").setAttribute("FontSize", fontSize - 1);
+}
+
+function onMouseUp(evt)
+{
+	var comp = evt.getCurrentTarget();
+	comp.getChildByName("FastNr").setAttribute("FontSize", fontSize);
+	comp.getChildByName("FastNamn").setAttribute("FontSize", fontSize);
+}]]></Script>
+        <Link Name="Panel Fastighet.Link" PreventDefault="True"/>
+    </Component>
+    <Component Clip="False" ContentHeight="0.0" ContentWidth="150.0"
+        Height="0.0" Id="Linje2" Left="44.0" Name="" Top="135.0" Width="150.0">
+        <Line Opacity="1.0" Stroke="#FFFFFF" StrokeDashArray="0.0"
+            StrokeWidth="0.5" X1="0.0" X2="150.0" Y1="0.0" Y2="0.0"/>
+    </Component>
+    <Component Clip="True" ContentHeight="665.0" ContentWidth="240.0"
+        Height="665.0" Id="MenyScroll" Left="0.0" Name="" Top="135.0"
+        Tothöjd="650" Width="240.0">
+        <Component Clip="False" ContentHeight="500" ContentWidth="160.0"
+            Height="500" Left="20.0" Name="Meny" Top="0.0" Width="160.0">
+            <Script Name="MenyScript" OnDocumentLoad="onLoad"
+                OnMouseClick="onClick" OnMouseDown="onDown"
+                OnMouseMove="onMove" OnMouseOut="onOut"
+                OnMouseOver="onOver" OnMouseUp="onUp"><![CDATA[/*
+Menu script v.2016-09-07 ###############
+
+Editlist:
+2016-06-17 (MIJA). Extensively updated code for better function and new scrollbar
+2015-01-30 (MIJA). Corrected for HTML5
+2014-10-22 (MIJA). Edited to only expand when arrow is clicked. Link is invoked only if link is clicked.
+*/
+
+var aMain = new mainObject();
+var onlyExpand = false;
+
+function onLoad(evt){
+	var comp = evt.getCurrentTarget();
+	aMain.init(comp);
+}
+
+function onClick(evt){
+	if(evt.getButton() == 0){
+		evt.preventDefault();
+		aMain.click(evt);
+	}
+}
+
+function onDown(evt){
+//	if(evt.getButton() == 0){
+//		evt.preventDefault();
+//		aMain.down(evt);
+//	}
+}
+
+function onUp(evt){
+//	if(evt.getButton() == 0){
+//		evt.preventDefault();
+//		aMain.up(evt);
+//	}
+}
+
+function onOut(evt){
+    aMain.out(evt);
+}
+
+function onOver(evt){
+	aMain.over(evt);
+}
+
+
+function onMove(evt){
+//	aMain.move(evt);
+}
+
+function mainObject(){
+	var node = null;	// Meny komponenten
+	var comps = [];		// Meny rader
+	var height = 0;
+	var top = 0;
+	var left = 0;
+	var marginTop = 10;
+	
+	this.init = function(comp){
+		node = comp;
+		
+		top = Number(node.getAttribute("Top"));
+		left = Number(node.getAttribute("Left"));
+        height = Number(node.getAttribute("Height"));
+		
+		var childList = node.getChildNodes();
+		var j=0;
+		for(var i=0;i<childList.length;i++){
+			if(childList.item(i).getTagName() == "Component"){
+				// Make sure we're working a menugroup component
+				if(childList.item(i).getAttribute("Id") == "MenyGrupp" || childList.item(i).getAttribute("Id") == "MenyRad"){
+					comps[j] = new compObject();	// ny meny rad
+					comps[j].init(childList.item(i));
+					j++;
+				}
+			}
+		}
+		action();
+	}
+	
+	this.click = function(evt){
+        this.mouse(evt, "click");
+	}
+    
+    this.over = function(evt){
+        this.mouse(evt, "over");
+	}
+	
+	this.out = function(evt){
+        this.mouse(evt, "out");
+	}
+    
+    this.mouse = function(evt, func){
+        var target = evt.getTarget();
+        if(target.getAttribute("Name").indexOf("menuTarget") > 0)
+            return;
+        else if((func == "over" || func == "out") && target.getAttribute("Name") != "menuTargetLink")
+            return;
+        var compsLength = comps.length;
+        for(var i=0;i < compsLength;i++){
+            comps[i][func](target);
+        }
+        action(func);
+	}
+	
+	var action = function(mouseFunc){
+		height = getHeights();
+        expandChildren();
+		setTops();
+		setLefts();
+		render(mouseFunc);
+		initScroll();
+	}
+	
+	var getHeights = function(){
+		var compHeight = marginTop;
+		for(var i=0;i<comps.length;i++){
+			compHeight += comps[i].getHeights();
+		}
+		return compHeight;
+	}
+	
+	var setTops = function(){
+		var compTop = marginTop;
+		for(var i=0;i<comps.length;i++){
+			comps[i].setTop(compTop);
+			comps[i].setTops();
+			compTop += comps[i].getHeight();
+		}
+	}
+	
+	var setLefts = function(){
+		for(var i=0;i<comps.length;i++){
+			comps[i].setLeft(0);
+		}
+	}
+	
+	var expandChildren = function(){
+		for(var i=0;i<comps.length;i++){
+			comps[i].setVisibility("Visible");
+			comps[i].testChildren();
+		}
+	}
+	
+	var render = function(mouseFunc){
+		node.setAttribute("Left",left);
+		node.setAttribute("Height",height);
+		node.setAttribute("ContentHeight",height);
+		for(var i=0;i<comps.length;i++){
+			comps[i].render(mouseFunc);
+		}
+	}
+	
+	var initScroll = function(){
+        if (typeof ScrollBar != 'undefined')
+        {
+            ScrollBar.contentForcedHeight = height;
+            ScrollBar.update();
+        }
+	}
+}
+
+function compObject(){
+	var node = null;
+	var comps = [];
+    var myArrow = new arrowObject();
+    var link;
+    var invokeCommand = "OpenInWorkArea";
+    
+    var top = 0;
+    var marginTop = 0;
+	var left = 0;
+    var marginLeft = 0;
+    var height = 0;
+    
+	var expanded = false;
+    var selectEnabled = true;
+	var visibility = "Visible";
+	var isClicked = false;
+    var isHovering = false;
+	
+	this.init = function(comp){
+		//store node
+		node = comp;
+		
+		top = Number(node.getAttribute("Top"));
+		left = Number(node.getAttribute("Left"));
+        var displayGroup = node.getChildByName("display");
+		height = Math.ceil(displayGroup.getBoundingBox().get_Height());
+		marginTop = height;
+	 	marginLeft = 10;
+	 	
+		//get Children
+		var childList = node.getChildNodes();
+		var j=0;
+		for(var i=0;i<childList.length;i++){
+			//store components in an array
+			if(childList.item(i).getTagName() == "Component"){
+				// Make sure we're working a menu component
+				if(childList.item(i).getAttribute("Id") == "MenyRad"){
+					comps[j] = new compObject();					
+					comps[j].init(childList.item(i));
+					comps[j].setLeft(marginLeft);
+					j++;
+				}
+			}
+			//store link fbn
+			if(childList.item(i).getTagName() == "Link") {
+				link = childList.item(i).getFullBindName();
+                
+                // set initial expanded boolean
+                if(childList.item(i).hasAttribute("InvokeCommand"))
+                    invokeCommand = childList.item(i).getAttribute("InvokeCommand");
+            }
+		}
+        
+		// set initial expanded boolean
+		if(node.hasAttribute("Expanded"))
+			expanded = getBool(node.getAttribute("Expanded"));
+        
+        // set initial expanded boolean
+		if(node.hasAttribute("SelectEnabled"))
+			selectEnabled = getBool(node.getAttribute("SelectEnabled"));
+  
+		//create arrow
+		var displayGroup = node.getChildByName("display");
+        var anArrow = displayGroup.getChildByName("Arrow");
+        if(anArrow != null){
+            myArrow.init(anArrow);
+            myArrow.setRotationAngle(45);
+        }
+		
+		//set arrow visibility
+		if(comps.length > 0)
+			myArrow.hasChildren();	
+		myArrow.setExpanded(expanded);
+		myArrow.render();
+        
+        // Create targetAreas
+        var ta = node.getOwnerDocument().createElement("TargetArea");
+        ta.setAttribute("Name", "menuTargetLink");
+        ta.setAttribute("Left", 15);
+        ta.setAttribute("Top", 0);
+        ta.setAttribute("Height", height);
+        ta.setAttribute("Width", displayGroup.getBoundingBox().get_Width()-15);
+        ta.setAttribute("Fill", "#FF0000");
+        node.appendChild(ta);
+        
+        ta = node.getOwnerDocument().createElement("TargetArea");
+        ta.setAttribute("Name", "menuTargetExpand");
+        ta.setAttribute("Left", -marginLeft);
+        ta.setAttribute("Top", 0);
+        ta.setAttribute("Height", height);
+        ta.setAttribute("Width", marginLeft+15);
+        ta.setAttribute("Fill", "#00FF00");
+        node.appendChild(ta);
+	}
+	
+    
+	this.click = function(target)
+    {
+		if(target.getParentNode().isSameNode(node)){
+			if(link == null || target.getAttribute("Name") == "menuTargetExpand") {
+ 				onlyExpand = true;
+				expanded = !expanded;
+				myArrow.setExpanded(expanded);
+				myArrow.render();
+			}
+            else {
+                invoke(link, invokeCommand);
+                isClicked = true;
+                onlyExpand = false;
+                //console.log("Invoked link: "+link);
+			}
+		}
+        else
+			this.mouse(target, "click");
+	}
+    
+    this.over = function(target)
+    {
+    	if(target.getParentNode().isSameNode(node))
+            isHovering = true;
+        else
+			this.mouse(target, "over");
+    }
+    
+    this.out = function(target)
+    {
+        if(target.getParentNode().isSameNode(node))
+            isHovering = false;
+        else
+			this.mouse(target, "out");
+    }
+    
+    this.mouse = function(target, func)
+    {
+        var compsLength = comps.length;
+        for(var i=0;i < compsLength;i++){
+            comps[i][func](target);
+        }		
+	}
+	
+	this.getTop = function(){
+		return top;
+	}
+	
+	this.getHeight = function(){
+		return height;
+	}
+	
+	this.getHeights = function(comp){
+		var compHeight = marginTop;
+		if(expanded){
+			for(var i=0;i<comps.length;i++){
+				compHeight += comps[i].getHeights();
+			}
+		}
+		height = compHeight;
+		return height;
+	}
+    
+	this.setTop = function(compTop){
+        if(visibility == "Visible")
+            top = compTop;
+        else
+            top = 0;
+	}
+	
+	this.setLeft = function(compLeft){
+		left = compLeft;
+	}
+	
+	this.setTops = function(){
+		var compTop = marginTop;
+		for(var i=0;i<comps.length;i++){
+            comps[i].setTop(compTop);
+			comps[i].setTops();
+            compTop += comps[i].getHeight();
+		}
+	}
+	
+	this.setVisibility = function(compVisibility){
+		visibility = compVisibility;
+	}
+	
+	this.render = function(mouseFunc){
+		node.setAttribute("Top",top);
+		node.setAttribute("Left",left);
+		node.setAttribute("Height",height);
+		node.setAttribute("ContentHeight",height);
+		node.setAttribute("Visibility",visibility);
+        var itemText = node.getChildByName("display").getChildByName("ItemText");
+
+		if(isHovering)
+            itemText.setAttribute("TextDecoration", "Underline");
+        else
+            itemText.setAttribute("TextDecoration", "None");
+        
+        if(mouseFunc == "click" && !onlyExpand) {
+            itemText.setAttribute("FontWeight", (isClicked) ? "Bold" : "Normal");
+            isClicked = false;
+        }
+				
+		for(var i=0;i<comps.length;i++){
+			comps[i].render(mouseFunc);
+		}
+	}
+	
+	this.testChildren = function(){
+		if(expanded)
+			expandChildren();
+		else
+			this.collapseChildren();
+	}
+	
+	var expandChildren = function(){
+		for(var i=0;i<comps.length;i++){
+			comps[i].setVisibility("Visible");
+			comps[i].testChildren("Visible");
+		}
+	}
+	
+	this.collapseChildren = function(){
+		for(var i=0;i<comps.length;i++){
+			comps[i].setVisibility("Hidden");
+			comps[i].collapseChildren();
+		}
+	}
+}
+
+function arrowObject(){
+	var node = null;
+	var arrow = null;
+	var rotate = null;
+	var polygon = null;
+	var children = false;
+	var expanded = false;
+	var colorExpanded = "";
+	var colorNotExpanded = "";
+	var rotationAngle = "";
+	
+	this.init = function(comp){
+		node = comp;
+		rotate = node.getElementsByTagName("Rotate").item(0);
+		polygon = node.getElementsByTagName("Polygon").item(0);
+		
+	}
+	
+	this.hasChildren = function(){
+		children = true;
+	}
+	
+	this.setColorExpanded = function(colExp)
+	{
+		colorExpanded = colExp;
+	}
+	
+	this.setColorNotExpanded = function(colNotExp)
+	{
+		colorNotExpanded = colNotExp;
+	}
+	
+	this.setRotationAngle = function(rotAngle)
+	{
+		rotationAngle = rotAngle;
+	}
+	
+	this.setExpanded = function(newExpanded){
+		expanded = newExpanded;
+	}
+	
+	this.render = function(){		
+		if(children)
+			node.setAttribute("Visibility","Visible");
+		else
+			node.setAttribute("Visibility","Hidden");		
+			
+		var color = "";
+		var angle = "";
+		if(!expanded){
+			angle = "0";
+			color = colorNotExpanded;
+			expanded = false;
+		}else{
+			angle = rotationAngle;
+			color = colorExpanded;
+			expanded = true;
+		}
+		
+		if(rotate != null)
+			rotate.setAttribute("Angle",angle);
+		if(expanded) {
+			polygon.setAttribute("Fill","#FFFFFF");
+			polygon.setAttribute("StrokeWidth","0.0");
+		} else {
+			polygon.setAttribute("Fill","None");
+			polygon.setAttribute("StrokeWidth","1.0");
+		}
+	}
+}
+
+function getBool(val){
+	var trueEnum = ["1","true","True","t","T","y","Y",true];
+	for(var i=0;i<trueEnum.length;i++){
+		if(val == trueEnum[i]){
+			return true;
+		}
+	}
+	return false;
+}]]></Script>
+            <Component Clip="False" ContentHeight="23.0"
+                ContentWidth="160.0" Expanded="true" Height="23.0"
+                Id="MenyGrupp" Left="0.0" Name="Värme Vatten"
+                SelectEnabled="false" Tooltip="Öppna/stäng grupp"
+                Top="10.0" Visibility="Visible" Width="160.0">
+                <Group Name="display" Visibility="Visible">
+                    <Component Clip="False" ContentHeight="15.0"
+                        ContentWidth="7.5" Height="15.0" Left="0.0"
+                        Name="Arrow" Top="5.0" Width="7.5">
+                        <Polygon Fill="#FFFFFF" Id="" Name=""
+                            Opacity="1.0"
+                            Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                            Stroke="#FFFFFF" StrokeDashArray="0.0"
+                            StrokeWidth="1.0" Visibility="Visible">
+                            <Rotate Angle="0" Center="0.1,0.55"/>
+                        </Polygon>
+                    </Component>
+                    <Text Fill="None" FontFamily="Arial" FontSize="20"
+                        FontStyle="Normal" FontWeight="Normal"
+                        HorizontalAlign="Left" Left="15.0"
+                        Name="ItemText" Opacity="1.0" Stroke="#FFFFFF"
+                        TextDecoration="None" Top="1.0"
+                            VerticalAlign="Top"><![CDATA[Värme / Vatten]]><Expose
+                            ExposedAttribute="Content" Name="Gruppnamn"/>
+                    </Text>
+                </Group>
+                <Expose ExposedAttribute="Name" Name="Gruppnamn"/>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="UC"
+                    SelectEnabled="true" Tooltip="Gå till system"
+                    Top="23.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[UC]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="VS1" SelectEnabled="false"
+                        Tooltip="Gå till system" Top="23.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[VS1]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="VS2" SelectEnabled="false"
+                        Tooltip="Gå till system" Top="46.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[VS2]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="VV1" SelectEnabled="false"
+                        Tooltip="Gå till system" Top="69.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[VV1]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="VP1" SelectEnabled="false"
+                        Tooltip="Gå till system" Top="92.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[VP1]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                </Component>
+            </Component>
+            <Component Clip="False" ContentHeight="23.0"
+                ContentWidth="160.0" Expanded="true" Height="23.0"
+                Id="MenyGrupp" Left="0.0" Name="Ventilation"
+                SelectEnabled="false" Tooltip="Öppna/stäng grupp"
+                Top="148.0" Visibility="Visible" Width="160.0">
+                <Group Name="display" Visibility="Visible">
+                    <Component Clip="False" ContentHeight="15.0"
+                        ContentWidth="7.5" Height="15.0" Left="0.0"
+                        Name="Arrow" Top="5.0" Width="7.5">
+                        <Polygon Fill="#FFFFFF" Id="" Name=""
+                            Opacity="1.0"
+                            Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                            Stroke="#FFFFFF" StrokeDashArray="0.0"
+                            StrokeWidth="1.0" Visibility="Visible">
+                            <Rotate Angle="0" Center="0.1,0.55"/>
+                        </Polygon>
+                    </Component>
+                    <Text Fill="None" FontFamily="Arial" FontSize="20"
+                        FontStyle="Normal" FontWeight="Normal"
+                        HorizontalAlign="Left" Left="15.0"
+                        Name="ItemText" Opacity="1.0" Stroke="#FFFFFF"
+                        TextDecoration="None" Top="1.0"
+                            VerticalAlign="Top"><![CDATA[Ventilation]]><Expose
+                            ExposedAttribute="Content" Name="Gruppnamn"/>
+                    </Text>
+                </Group>
+                <Expose ExposedAttribute="Name" Name="Gruppnamn"/>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="LB01"
+                    SelectEnabled="true" Tooltip="Gå till system"
+                    Top="23.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[LB01]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="Brandspjäll" SelectEnabled="true"
+                        Tooltip="Gå till system" Top="23.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[Brandspjäll]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                </Component>
+            </Component>
+            <Component Clip="False" ContentHeight="23.0"
+                ContentWidth="160.0" Expanded="true" Height="23.0"
+                Id="MenyGrupp" Left="0.0" Name="Kyla"
+                SelectEnabled="false" Tooltip="Öppna/stäng grupp"
+                Top="217.0" Visibility="Visible" Width="160.0">
+                <Group Name="display" Visibility="Visible">
+                    <Component Clip="False" ContentHeight="15.0"
+                        ContentWidth="7.5" Height="15.0" Left="0.0"
+                        Name="Arrow" Top="5.0" Width="7.5">
+                        <Polygon Fill="#FFFFFF" Id="" Name=""
+                            Opacity="1.0"
+                            Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                            Stroke="#FFFFFF" StrokeDashArray="0.0"
+                            StrokeWidth="1.0" Visibility="Visible">
+                            <Rotate Angle="0" Center="0.1,0.55"/>
+                        </Polygon>
+                    </Component>
+                    <Text Fill="None" FontFamily="Arial" FontSize="20"
+                        FontStyle="Normal" FontWeight="Normal"
+                        HorizontalAlign="Left" Left="15.0"
+                        Name="ItemText" Opacity="1.0" Stroke="#FFFFFF"
+                        TextDecoration="None" Top="1.0"
+                            VerticalAlign="Top"><![CDATA[Kyla]]><Expose
+                            ExposedAttribute="Content" Name="Gruppnamn"/>
+                    </Text>
+                </Group>
+                <Expose ExposedAttribute="Name" Name="Gruppnamn"/>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="KB1"
+                    SelectEnabled="true" Tooltip="Gå till system"
+                    Top="23.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[KB1]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="Nått" SelectEnabled="true"
+                        Tooltip="Gå till system" Top="23.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[Nått]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                </Component>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="KB2"
+                    SelectEnabled="true" Tooltip="Gå till system"
+                    Top="69.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[KB2]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                </Component>
+            </Component>
+            <Component Clip="False" ContentHeight="23.0"
+                ContentWidth="160.0" Expanded="true" Height="23.0"
+                Id="MenyGrupp" Left="0" Name="Rumsreglering"
+                SelectEnabled="false" Tooltip="Öppna/stäng grupp"
+                Top="307" Visibility="Visible" Width="160.0">
+                <Group Name="display" Visibility="Visible">
+                    <Component Clip="False" ContentHeight="15.0"
+                        ContentWidth="7.5" Height="15.0" Left="0.0"
+                        Name="Arrow" Top="5.0" Width="7.5">
+                        <Polygon Fill="#FFFFFF" Id="" Name=""
+                            Opacity="1.0"
+                            Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                            Stroke="#FFFFFF" StrokeDashArray="0.0"
+                            StrokeWidth="1.0" Visibility="Visible">
+                            <Rotate Angle="0" Center="0.1,0.55"/>
+                        </Polygon>
+                    </Component>
+                    <Text Fill="None" FontFamily="Arial" FontSize="20"
+                        FontStyle="Normal" FontWeight="Normal"
+                        HorizontalAlign="Left" Left="15.0"
+                        Name="ItemText" Opacity="1.0" Stroke="#FFFFFF"
+                        TextDecoration="None" Top="1.0"
+                            VerticalAlign="Top"><![CDATA[Rumsreglering]]><Expose
+                            ExposedAttribute="Content" Name="Gruppnamn"/>
+                    </Text>
+                </Group>
+                <Expose ExposedAttribute="Name" Name="Gruppnamn"/>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="Plan 1"
+                    SelectEnabled="true" Tooltip="Gå till översikt"
+                    Top="23.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[Plan 1]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Bilder.Bild Zonöversikt.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20.0"
+                        Name="8300 EcoZone 1" SelectEnabled="true"
+                        Tooltip="Gå till system" Top="23.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[8300 EcoZone 1]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                    <Component Clip="False" ContentHeight="23.0"
+                        ContentWidth="160.0" Expanded="false"
+                        Height="23.0" Id="MenyRad" Left="20"
+                        Name="8300 EcoZone 2" SelectEnabled="true"
+                        Tooltip="Gå till system" Top="46.0"
+                        Visibility="Visible" Width="160.0">
+                        <Group Name="display" Visibility="Visible">
+                            <Component Clip="False" ContentHeight="15.0"
+                                ContentWidth="7.5" Height="15.0"
+                                Left="0.0" Name="Arrow" Top="5.0" Width="7.5">
+                                <Polygon Fill="#FFFFFF" Id="" Name=""
+                                    Opacity="1.0"
+                                    Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                    Stroke="#FFFFFF"
+                                    StrokeDashArray="0.0"
+                                    StrokeWidth="1.0" Visibility="Visible">
+                                    <Rotate Angle="0" Center="0.1,0.55"/>
+                                </Polygon>
+                            </Component>
+                            <Text Fill="None" FontFamily="Arial"
+                                FontSize="20" FontStyle="Normal"
+                                FontWeight="Normal"
+                                HorizontalAlign="Left" Left="15.0"
+                                Name="ItemText" Opacity="1.0"
+                                Stroke="#FFFFFF" TextDecoration="None"
+                                Top="1.0"
+                                    VerticalAlign="Top"><![CDATA[8300 EcoZone 2]]><Expose
+                                    ExposedAttribute="Content" Name="Underlänknamn"/>
+                            </Text>
+                        </Group>
+                        <Link InvokeCommand="OpenInWorkarea"
+                            Name="Panel.Link" PreventDefault="True"/>
+                        <Expose ExposedAttribute="Name" Name="Underlänknamn"/>
+                    </Component>
+                </Component>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="Plan 2"
+                    SelectEnabled="true" Tooltip="Gå till översikt"
+                    Top="89.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[Plan 2]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Bilder.Bild Zonöversikt.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                </Component>
+            </Component>
+            <Component Clip="False" ContentHeight="23.0"
+                ContentWidth="160.0" Expanded="true" Height="23.0"
+                Id="MenyGrupp" Left="0" Name="EL Energi"
+                SelectEnabled="false" Tooltip="Öppna/stäng grupp"
+                Top="417.0" Visibility="Visible" Width="160.0">
+                <Group Name="display" Visibility="Visible">
+                    <Component Clip="False" ContentHeight="15.0"
+                        ContentWidth="7.5" Height="15.0" Left="0.0"
+                        Name="Arrow" Top="5.0" Width="7.5">
+                        <Polygon Fill="#FFFFFF" Id="" Name=""
+                            Opacity="1.0"
+                            Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                            Stroke="#FFFFFF" StrokeDashArray="0.0"
+                            StrokeWidth="1.0" Visibility="Visible">
+                            <Rotate Angle="0" Center="0.1,0.55"/>
+                        </Polygon>
+                    </Component>
+                    <Text Fill="None" FontFamily="Arial" FontSize="20"
+                        FontStyle="Normal" FontWeight="Normal"
+                        HorizontalAlign="Left" Left="15.0"
+                        Name="ItemText" Opacity="1.0" Stroke="#FFFFFF"
+                        TextDecoration="None" Top="1.0"
+                            VerticalAlign="Top"><![CDATA[El & Energi]]><Expose
+                            ExposedAttribute="Content" Name="Gruppnamn"/>
+                    </Text>
+                </Group>
+                <Expose ExposedAttribute="Name" Name="Gruppnamn"/>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="Mätaröversikt"
+                    SelectEnabled="true" Tooltip="Gå till översikt"
+                    Top="23.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[Mätaröversikt]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                </Component>
+                <Component Clip="False" ContentHeight="23.0"
+                    ContentWidth="160.0" Expanded="false" Height="23.0"
+                    Id="MenyRad" Left="10.0" Name="Kraftöversikt"
+                    SelectEnabled="true" Tooltip="Gå till översikt"
+                    Top="45.0" Visibility="Visible" Width="160.0">
+                    <Group Name="display" Visibility="Visible">
+                        <Component Clip="False" ContentHeight="15.0"
+                            ContentWidth="7.5" Height="15.0" Left="0.0"
+                            Name="Arrow" Top="5.0" Width="7.5">
+                            <Polygon Fill="#FFFFFF" Id="" Name=""
+                                Opacity="1.0"
+                                Points="0.0,0.0 7.5,7.5 0.0,15.0"
+                                Stroke="#FFFFFF" StrokeDashArray="0.0"
+                                StrokeWidth="1.0" Visibility="Visible">
+                                <Rotate Angle="0" Center="0.1,0.55"/>
+                            </Polygon>
+                        </Component>
+                        <Text Fill="None" FontFamily="Arial"
+                            FontSize="20" FontStyle="Normal"
+                            FontWeight="Normal" HorizontalAlign="Left"
+                            Left="15.0" Name="ItemText" Opacity="1.0"
+                            Stroke="#FFFFFF" TextDecoration="None"
+                            Top="1.0"
+                                VerticalAlign="Top"><![CDATA[Kraftöversikt]]><Expose
+                                ExposedAttribute="Content" Name="Länknamn"/>
+                        </Text>
+                    </Group>
+                    <Link InvokeCommand="OpenInWorkarea"
+                        Name="Panel.Link" PreventDefault="True"/>
+                    <Expose ExposedAttribute="Name" Name="Länknamn"/>
+                </Component>
+            </Component>
+        </Component>
+        <Component Clip="False"
+            ComponentVersion="TgmlScrollbar-20160614-v2.0-MIJA"
+            ContentHeight="665.0" ContentWidth="15.0" Height="665.0"
+            Left="225.0" Name="Scrollbar" Top="0.0" Visibility="Visible" Width="15.0">
+            <Rectangle Fill="#E0E0E0" Height="665.0" Left="0.0"
+                Name="Scrollbar" RadiusX="0.0" RadiusY="0.0"
+                Stroke="#E0E0E0" StrokeDashArray="0.0" StrokeWidth="0.0"
+                Top="0.0" Width="15.0">
+                <Script Name="BarScroll" OnMouseClick="OnMouseClick"><![CDATA[function OnMouseClick(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	ScrollBar.scrollPage(evt.getClientY());
+}
+]]></Script>
+                <Expose ExposedAttribute="Fill" Name="ScrollbarBg"/>
+            </Rectangle>
+            <Component Clip="False" ContentHeight="15.0"
+                ContentWidth="15.0" Height="15.0" Id="" Left="0.0"
+                Name="ScrollUpBtn" Top="0.0" Width="15.0">
+                <Script Name="ScrollUp" OnMouseClick=""
+                    OnMouseDown="OnMouseDown" OnMouseOut="OnMouseOut"
+                    OnMouseOver="OnMouseOver" OnMouseUp="OnMouseUp"><![CDATA[var StartedHolding = -1;
+
+function OnMouseDown(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Visible");
+	
+    // Spara aktuell tid i millisekunder då musknappen tröcks ned (för holding function)
+    StartedHolding = Date.now();
+
+    // Scrolla ett steg direkt
+    ScrollBar.scrollUp();
+    // Hoppa till nedhållningschecken efter 700ms
+    setTimeout("holding()","700");
+}
+
+function OnMouseUp(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Nollställ nedhållning
+	StartedHolding = -1;
+}
+
+function OnMouseOver(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Visible");
+}
+
+function OnMouseOut(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Hidden");
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Nollställ nedhållning
+	StartedHolding = -1;
+}
+
+function holding()
+{
+	// Kontrollera om musknappen har varit nedhålld i minst 600 ms och fortfarande är nedtryckt
+	if(Date.now()-StartedHolding > 600 && StartedHolding > -1)
+	{	
+		// Scrolla ett steg och loopa tillbaka till denna funtion om 40ms.
+		ScrollBar.scrollUp();
+		setTimeout("holding()","40");
+	}
+}]]></Script>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Up" Top="0.0" Width="15.0">
+                    <Rectangle Fill="#E0E0E0" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgUp"/>
+                    </Rectangle>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="3.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgUp"/>
+                    </Line>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="12.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgUp"/>
+                    </Line>
+                </Component>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Over" Top="0.0" Visibility="Hidden" Width="15.0">
+                    <Rectangle Fill="#C0C0C0" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgOver"/>
+                    </Rectangle>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="3.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgOver"/>
+                    </Line>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="12.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgOver"/>
+                    </Line>
+                </Component>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Down" Top="0.0" Visibility="Hidden" Width="15.0">
+                    <Rectangle Fill="#808080" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgDown"/>
+                    </Rectangle>
+                    <Line Stroke="#E0E0E0" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="3.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgDown"/>
+                    </Line>
+                    <Line Stroke="#E0E0E0" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="7.5"
+                        X2="12.0" Y1="4.0" Y2="9.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgDown"/>
+                    </Line>
+                </Component>
+                <TargetArea Height="15.0" Width="15.0"/>
+            </Component>
+            <Component Clip="False" ContentHeight="15.0"
+                ContentWidth="15.0" Height="15.0" Id="" Left="0.0"
+                Name="ScrollDownBtn" Top="650.0" Width="15.0">
+                <Script Name="ScrollDown" OnMouseClick=""
+                    OnMouseDown="OnMouseDown" OnMouseOut="OnMouseOut"
+                    OnMouseOver="OnMouseOver" OnMouseUp="OnMouseUp"><![CDATA[var StartedHolding = -1;
+
+function OnMouseDown(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Visible");
+	
+    // Spara aktuell tid i millisekunder då musknappen tröcks ned (för holding function)
+    StartedHolding = Date.now();
+
+    // Scrolla ett steg direkt
+    ScrollBar.scrollDown();
+    // Hoppa till nedhållningschecken efter 700ms
+    setTimeout("holding()","700");
+}
+
+function OnMouseUp(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Nollställ nedhållning
+	StartedHolding = -1;
+}
+
+function OnMouseOver(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Visible");
+}
+
+function OnMouseOut(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Hidden");
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Nollställ nedhållning
+	StartedHolding = -1;
+}
+
+function holding()
+{
+	// Kontrollera om musknappen har varit nedhålld i minst 600 ms och fortfarande är nedtryckt
+	if(Date.now()-StartedHolding > 600 && StartedHolding > -1)
+	{	
+		// Scrolla ett steg och loopa tillbaka till denna funtion om 40ms.
+		ScrollBar.scrollDown();
+		setTimeout("holding()","40");
+	}
+}]]></Script>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Up" Top="0.0" Visibility="Visible" Width="15.0">
+                    <Rectangle Fill="#E0E0E0" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgUp"/>
+                    </Rectangle>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="3.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgUp"/>
+                    </Line>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="12.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgUp"/>
+                    </Line>
+                </Component>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Over" Top="0.0" Visibility="Hidden" Width="15.0">
+                    <Rectangle Fill="#C0C0C0" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgOver"/>
+                    </Rectangle>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="3.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgOver"/>
+                    </Line>
+                    <Line Stroke="#808080" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="12.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgOver"/>
+                    </Line>
+                </Component>
+                <Component Clip="False" ContentHeight="15.0"
+                    ContentWidth="15.0" Height="15.0" Left="0.0"
+                    Name="Down" Top="0.0" Visibility="Hidden" Width="15.0">
+                    <Rectangle Fill="#808080" Height="15.0" Left="0.0"
+                        Name="Bg" Stroke="None" StrokeWidth="0.0"
+                        Top="0.0" Width="15.0">
+                        <Expose ExposedAttribute="Fill" Name="ArrowBgDown"/>
+                    </Rectangle>
+                    <Line Stroke="#E0E0E0" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="3.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgDown"/>
+                    </Line>
+                    <Line Stroke="#E0E0E0" StrokeDashArray="0.0"
+                        StrokeWidth="2" Visibility="Visible" X1="12.0"
+                        X2="7.5" Y1="5.0" Y2="10.0">
+                        <Expose ExposedAttribute="Stroke" Name="ArrowFgDown"/>
+                    </Line>
+                </Component>
+                <TargetArea Height="15.0" Width="15.0"/>
+            </Component>
+            <Component Clip="False" ContentHeight="40.0"
+                ContentWidth="15.0" Height="40.0" Id="" Left="0.0"
+                Name="ScrollHandle" Top="15.0" Width="15.0">
+                <Script Name="DragScroll" OnDocumentLoad=""
+                    OnMouseClick="" OnMouseDown="OnMouseDown"
+                    OnMouseMove="OnMouseMove" OnMouseOut="OnMouseOut"
+                    OnMouseOver="OnMouseOver" OnMouseUp="OnMouseUp"><![CDATA[
+var MoveYpos = 0;
+
+function OnMouseDown(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Visible");
+	
+	MoveYpos = evt.getClientY();
+}
+
+function OnMouseUp(evt)
+{	
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Avsluta drag
+	MoveYpos = 0;
+}
+
+function OnMouseOver(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Visible");
+}
+
+function OnMouseOut(evt)
+{
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	evt.getCurrentTarget().getChild("Over").setAttribute("Visibility", "Hidden");
+	evt.getCurrentTarget().getChild("Down").setAttribute("Visibility", "Hidden");
+	
+	// Avsluta drag
+	MoveYpos = 0;
+}
+
+function OnMouseMove(evt)
+{	
+	evt.preventDefault();
+	evt.stopPropagation();
+	
+	// Om musen flyttas och drag är satt, flytta dragskon innom gränser.
+	if(MoveYpos > 0)
+	{	
+        ScrollBar.scrollDrag(MoveYpos, evt.getCurrentTargetParentY());
+	}
+}]]></Script>
+                <Rectangle Fill="#4FA600" Height="40.0" Left="1.0"
+                    Name="Up" RadiusX="6.5" RadiusY="6.5" Stroke="None"
+                    StrokeDashArray="0.0" StrokeWidth="0.0" Top="0.0" Width="13.0">
+                    <Expose ExposedAttribute="Fill" Name="DragskoBgUp"/>
+                </Rectangle>
+                <Rectangle Fill="#87D300" Height="40.0" Left="1.0"
+                    Name="Over" RadiusX="6.5" RadiusY="6.5"
+                    Stroke="None" StrokeDashArray="0.0"
+                    StrokeWidth="0.0" Top="0.0" Visibility="Hidden" Width="13.0">
+                    <Expose ExposedAttribute="Fill" Name="DragskoBgOver"/>
+                </Rectangle>
+                <Rectangle Fill="#2F8600" Height="40.0" Left="1.0"
+                    Name="Down" RadiusX="6.5" RadiusY="6.5"
+                    Stroke="None" StrokeDashArray="0.0"
+                    StrokeWidth="0.0" Top="0.0" Visibility="Hidden" Width="13.0">
+                    <Expose ExposedAttribute="Fill" Name="DragskoBgDown"/>
+                </Rectangle>
+                <TargetArea Height="40.0" Width="15.0"/>
+            </Component>
+            <Script Name="GlobalScroll" OnDocumentLoad="onLoad" OnMouseClick=""><![CDATA[ScrollBar = new scrollbarObject();  // Create new global scrollbar
+
+function onLoad(evt)
+{
+    var comp = evt.getCurrentTarget();
+    
+    ScrollBar.init(comp, comp.getPreviousSibling());    // Init the global scrollbar
+}
+
+
+function scrollbarObject()
+{
+    var that = this;
+    var node = null;            // Scrollbar node
+    var contentNode = null;     // Content node, that the scrollbar will scroll
+    var handle = null;          // Scrollbar handle node
+    
+    var height = 0;
+    var btnHeight = 0;
+    var handleHeight = 0;
+    var handleStartY = 0;
+    var handleYpos = 0;
+    var handleMinY = 0;
+    var handleMaxY = 0;
+    var contentStartY = 0;
+    var contentYpos = 0;
+    this.contentForcedHeight = 0;
+    var scrollPx = 20;
+    var visibility = "Visible";
+    
+    this.init = function(comp, contentComp)
+    {
+        node = comp;
+        contentNode = contentComp;
+        handle = node.getChild("ScrollHandle");
+        
+        height = Number(node.getAttribute("Height"));
+        btnHeight = Number(node.getChild("ScrollUpBtn").getAttribute("Height"));
+        
+        handleHeight = Number(handle.getAttribute("Height"));
+        handleYpos = Number(handle.getAttribute("Top"));
+        handleMinY = btnHeight;
+        handleMaxY = height - btnHeight - handleHeight;
+        handleStartY = Number(handle.getAttribute("Top"));
+        contentStartY = Number(contentNode.getAttribute("Top"));
+        contentYpos = contentStartY;
+        
+        this.update();
+    }
+    
+    this.scrollDown = function()
+    {
+        // add how many pixels that should be scrolled 
+        handleYpos += scrollPx;
+        
+        // Se till att dragskon inte hamnar utanför max, och flytta den
+        handleYpos = handleYpos < handleMaxY ? handleYpos : handleMaxY; 
+        
+        render();
+    }
+    
+    this.scrollUp = function()
+    {  
+        // remove how many pixels that should be scrolled 
+        handleYpos -= scrollPx;
+        
+        // Se till att dragskon inte hamnar utanför max, och flytta den
+        handleYpos = handleYpos > handleMinY ? handleYpos : handleMinY; 
+        
+        render();
+    }
+    
+    this.scrollDrag = function(downY, mouseY)
+    {
+		// Hämta och räkna ut Y-Positionen (Top) av dagskon
+		handleYpos = mouseY - downY;
+
+		// Kolla om dragskon är utanför övre gränsen
+		if(handleYpos <= handleMinY)
+			handleYpos = handleMinY;	
+		// Kolla om dragskon är utanför nedre gränsen
+		else if(handleYpos >= handleMaxY)
+			handleYpos = handleMaxY;	
+
+        render();
+    }
+    
+    this.scrollPage = function(mouseY)
+    {
+        // Kolla om upp eller ner, sätt hur mycket varje klick skall scrolla och se till att dragskon inte hamnar utanför max
+		if(mouseY - handleMinY > handleYpos) {
+			handleYpos += height-20;
+			handleYpos = handleYpos < handleMaxY ? handleYpos : handleMaxY; 
+		} else {
+			handleYpos -= height-20;
+			handleYpos = handleYpos > handleMinY ? handleYpos : handleMinY; 
+		}
+        
+        render();
+    }
+   
+    this.update = function()
+    {
+        var contentHeight = getContentHeight();
+        
+        if(contentHeight < height)
+        {
+            visibility = "Hidden"
+            handleYpos = handleMinY;
+            contentYpos = contentStartY;
+        }
+        else {
+            visibility = "Visible";
+            
+            handleHeight = (Math.max(height/contentHeight, 0.2) * height) - btnHeight*2;
+            handleMaxY = height - btnHeight - handleHeight;
+            
+            handleYpos = (height - contentHeight) / (handleMaxY - handleMinY);
+            handleYpos = (contentYpos - contentStartY) / handleYpos + handleStartY;
+            
+            // Kolla om dragskon är utanför övre gränsen
+            if(handleYpos <= handleMinY)
+               handleYpos = handleMinY;	
+            // Kolla om dragskon är utanför nedre gränsen
+            else if(handleYpos >= handleMaxY)
+                handleYpos = handleMaxY;
+        }
+        
+        render();
+    }
+    
+    var render = function()
+    {
+        var contentHeight = getContentHeight();
+        
+        node.setAttribute("Visibility", visibility);
+        handle.setAttribute("Top",handleYpos);
+        handle.setAttribute("Height", handleHeight);
+        handle.setAttribute("ContentHeight", handleHeight);
+        handle.getChild("Up").setAttribute("Height", handleHeight);
+        handle.getChild("Over").setAttribute("Height", handleHeight);
+        handle.getChild("Down").setAttribute("Height", handleHeight);
+        
+        // Räkna ut nya position till scrollrutan och sätt den
+		contentYpos = (height - contentHeight) / (handleMaxY - handleMinY);
+		contentYpos = (handleYpos - handleStartY) * contentYpos + contentStartY;
+        contentNode.setAttribute("Top", contentYpos);
+    }
+    
+    var getContentHeight = function()
+    {
+        return (that.contentForcedHeight > 0) ? that.contentForcedHeight : contentNode.getBoundingBox().get_Height();
+    }
+}
+]]></Script>
+        </Component>
+    </Component>
+</Tgml>
