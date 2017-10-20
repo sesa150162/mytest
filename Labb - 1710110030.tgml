@@ -1,0 +1,539 @@
+<?xml version="1.0"?>
+
+<!--[DocumentInformation]
+Created: 2017-10-10 13:25
+Modified: 2017-10-11 08:43
+-->
+<?tgml version="1.3"?><Tgml ComponentCounter="6" GridSize="10" UseGlobalScripts="True">
+    <Script OnDocumentLoad="onLoad" OnMouseClick="onMouseClick" OnSignalChange="onSignalChange"><![CDATA[var Json = "";
+var settings = {};
+var numSettings = 0;
+
+function onLoad(evt)
+{
+    var binds = evt.getCurrentTarget().getChild("Settings").getElementsByTagName("Bind");
+    numSettings = binds.getLength();
+    console.log("Antal bindingar: "+numSettings);
+}
+
+function onSignalChange(evt)
+{   
+    if (evt.getTarget().getAttribute("Name") == "Json.Value") {
+        Json = evt.getValue();
+        // Tänd Ladda..
+        evt.getCurrentTarget().getChild("Ladda").setAttribute("Opacity", 1);
+        return;
+    }
+    
+    var targetId = evt.getTarget().getAttribute("Id");
+    var parentId = evt.getTarget().getParentNode().getAttribute("Id");
+    
+    // Om Key grupp inte finns
+    if(!settings[parentId]) {
+        // Skapa tom grupp
+        settings[parentId] = {};
+    }
+    
+    // Spara värde till key
+    settings[parentId][targetId] = evt.getValue();
+    
+    
+    
+    // Räkna antal keys i Settings
+    var num = 0;
+    for (var parent in settings) {
+        for (var key in settings[parent]) {
+            num++;
+        }
+    }
+    // Om samma antal keys som settings
+    if (num == numSettings) {
+        // Tänd spara..
+        evt.getCurrentTarget().getChild("Spara").setAttribute("Opacity", 1);
+    }
+}
+
+function onMouseClick(evt)
+{
+    var targetName = evt.getTarget().getAttribute("Name");
+    
+    // If save button and it's enabled
+    if (targetName == "Spara" && Number(evt.getTarget().getAttribute("Opacity")) == 1) {
+        console.log("Sparar (till json)...");
+        // Set timestamp of save
+        settings["DeviceInfo"]["SavedTime"] = (new Date()).toLocaleString();
+        // Save settings object to JSON string
+        if (setValue(evt.getCurrentTarget().getChild("Json.Value").getFullBindName(), JSON.stringify(settings))){
+            console.log("Sparat!");
+        } else {
+            alert("Kunde inte spara! Försök igen...");
+        }
+    }
+    // If load button and it's enabled
+    else if (targetName == "Ladda" && Number(evt.getTarget().getAttribute("Opacity")) == 1) {
+        console.log("Laddar (från json)...");
+        
+        // Load settings from JSON string and save them all to it's individual binds
+        var newSettings = JSON.parse(Json);
+        if(newSettings) {
+            writeJsoToBinds(newSettings, evt.getCurrentTarget().getChild("Settings"), evt.getCurrentTarget());
+        }
+        console.log("Laddat!");
+    }
+}
+
+function writeJsoToBinds(o, tree, node) {
+    // Loopa thru all children of the current tree node
+    var children = tree.getChildNodes();
+    for (var i=0,n=children.getLength() ; i<n ; i++) {
+        var c = children.item(i);                       // Get child
+        var cId = String(c.getAttribute("Id"));         // Get child id
+        var co = o[cId];                                // Get matching object property 
+        // If we got a match we have work to do
+        if (co) {
+            if (c.getTagName() == "Bind" && typeof co != "object") {
+                // Current child is a Bind and we have a value of some sort, lets write it!
+                console.log("Skriver '" + co + "' till " + c.getAttribute("Name"));
+                if (!setValue(c.getFullBindName(), co))
+                    console.log("Skrivning misslyckades!");
+            }
+            else if (c.getTagName() != "Bind" && typeof co == "object") {
+                // Check if this group should be skipped
+                if (node.getChild("CheckBox_Load_"+cId) && !Number(node.getChild("CheckBox_Load_"+cId).getAttribute("Checked"))) {
+                    console.log("Hoppar över grupp '" + cId + "'");
+                    continue;
+                }
+                // Current child is hopefully a group of some sort, and we have an object (a group of properties),
+                // so lets traverse into that, by running this function on it self.
+                console.log("Går in i grupp '" + cId + "'");
+                writeJsoToBinds(co, c, node);
+                console.log("Går ut ur grupp '" + cId + "'");
+            }
+            else
+                // Hmm what?
+                console.log("Kunde inte ladda '" + cId + "'");
+        }
+        // No match... tell about it?
+        else
+            console.log("Ingen data finns för '" + cId + "'");
+    }
+}
+
+]]></Script>
+    <Group Id="JSON Tree" Name="Settings">
+        <Group Id="SavedIdConfig">
+            <Bind Attribute="" Description="" Id="IdConfig" Name="IdConfig.Value"/>
+        </Group>
+        <Group Id="SavedPositionConfig">
+            <Bind Attribute="" Description="" Id="PositionConfig" Name="PositionConfig.Value"/>
+        </Group>
+        <Group Id="SavedConfig">
+            <Bind Attribute="" Description="" Id="cmdFFKanal1" Name="cmdFFKanal1.Value"/>
+            <Bind Attribute="" Description="" Id="cmdGFF0" Name="cmdGFF0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdGFT0" Name="cmdGFT0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdGNL0" Name="cmdGNL0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdGQL0" Name="cmdGQL0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdGTL0" Name="cmdGTL0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdKyla" Name="cmdKyla.Value"/>
+            <Bind Attribute="" Description="" Id="cmdKylbaffel" Name="cmdKylbaffel.Value"/>
+            <Bind Attribute="" Description="" Id="cmdSpjall" Name="cmdSpjall.Value"/>
+            <Bind Attribute="" Description="" Id="cmdST00" Name="cmdST00.Value"/>
+            <Bind Attribute="" Description="" Id="cmdSTF0" Name="cmdSTF0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdSTT0" Name="cmdSTT0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdSVK0" Name="cmdSVK0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdTFKanal1" Name="cmdTFKanal1.Value"/>
+            <Bind Attribute="" Description="" Id="cmdTKL0" Name="cmdTKL0.Value"/>
+            <Bind Attribute="" Description="" Id="cmdVarme" Name="cmdVarme.Value"/>
+            <Bind Attribute="" Description="" Id="cmdTrevagsventilKyla" Name="cmdTrevagsventilKyla.Value"/>
+            <Bind Attribute="" Description="" Id="cmdTrevagsventilVarme" Name="cmdTrevagsventilVarme.Value"/>
+            <Bind Attribute="" Description="" Id="cmdVandVatskeriktn" Name="cmdVandVatskeriktn.Value"/>
+        </Group>
+        <Group Id="SavedSettings">
+            <Bind Id="UO10Configuration" Name="UO10Configuration.Priority2"/>
+            <Bind Id="UO9Configuration" Name="UO9Configuration.Priority2"/>
+            <Bind Id="LuaParameterA" Name="LuaParameterA.RelinquishDefault"/>
+            <Bind Id="LuaParameterB" Name="LuaParameterB.RelinquishDefault"/>
+            <Bind Id="LuaParameterC" Name="LuaParameterC.RelinquishDefault"/>
+            <Bind Id="LuaParameterD" Name="LuaParameterD.RelinquishDefault"/>
+            <Bind Id="LuaParameterE" Name="LuaParameterE.RelinquishDefault"/>
+            <Bind Id="LuaParameterF" Name="LuaParameterF.RelinquishDefault"/>
+            <Bind Id="FanSequence" Name="FanSequence.RelinquishDefault"/>
+            <Bind Id="OccupiedCool" Name="OccupiedCool.RelinquishDefault"/>
+            <Bind Id="UnOccupiedCool" Name="UnOccupiedCool.RelinquishDefault"/>
+            <Bind Id="StandbyCool" Name="StandbyCool.RelinquishDefault"/>
+            <Bind Id="OccupiedHeat" Name="OccupiedHeat.RelinquishDefault"/>
+            <Bind Id="UnOccupiedHeat" Name="UnOccupiedHeat.RelinquishDefault"/>
+            <Bind Id="StandbyHeat" Name="StandbyHeat.RelinquishDefault"/>
+            <Bind Id="MinimumDeadband" Name="MinimumDeadband.RelinquishDefault"/>
+            <Bind Id="PropotionalBand" Name="PropotionalBand.RelinquishDefault"/>
+            <Bind Id="HeatingSetpointLimit" Name="HeatingSetpointLimit.RelinquishDefault"/>
+            <Bind Id="CoolingSetpointLimit" Name="CoolingSetpointLimit.RelinquishDefault"/>
+            <Bind Id="GFF0_B_EngTop" Name="GFF0_B_EngTop"/>
+            <Bind Id="GFF0_B_EngBottom" Name="GFF0_B_EngBottom"/>
+            <Bind Id="GFT0_B_EngTop" Name="GFT0_B_EngTop"/>
+            <Bind Id="GFT0_B_EngBottom" Name="GFT0_B_EngBottom"/>
+            <Bind Id="GFF0_EngTop" Name="GFF0_EngTop"/>
+            <Bind Id="GFF0_EngBottom" Name="GFF0_EngBottom"/>
+            <Bind Id="GFT0_EngTop" Name="GFT0_EngTop"/>
+            <Bind Id="GFT0_EngBottom" Name="GFT0_EngBottom"/>
+            <Bind Id="MinHeat" Name="MinHeat"/>
+            <Bind Id="cmdGF00config" Name="cmdGF00config"/>
+            <Bind Id="CustomButtonBehavior.RelinquishDefault" Name="CustomButtonBehavior.RelinquishDefault"/>
+            <Bind Id="CustomPage.RelinquishDefault" Name="CustomPage.RelinquishDefault"/>
+            <Bind Id="FanMode.RelinquishDefault" Name="FanMode.RelinquishDefault"/>
+        </Group>
+        <Group Id="DeviceInfo">
+            <Bind Id="SavedTime" Name="SavedTime"/>
+        </Group>
+    </Group>
+    <Bind Name="Json.Value" PreventDefault="True"/>
+    <TextBox Fill="#B10043" FontFamily="Arial" FontSize="15"
+        FontStyle="Normal" FontWeight="Normal" Height="25.0"
+        HorizontalAlign="Center" Left="20.0" Name="Ladda" Opacity="0.5"
+        Stroke="#FFFFFF" TextDecoration="None" Top="20.0"
+        VerticalAlign="Middle" Width="200.0"><![CDATA[Ladda konfig från JSON]]></TextBox>
+    <TextBox Fill="#4FA600" FontFamily="Arial" FontSize="15"
+        FontStyle="Normal" FontWeight="Normal" Height="25.0"
+        HorizontalAlign="Center" Left="20.0" Name="Spara" Opacity="0.5"
+        Stroke="#FFFFFF" TextDecoration="None" Top="50.0"
+        VerticalAlign="Middle" Width="200.0"><![CDATA[Spara konfig till JSON]]></TextBox>
+    <TextBox Fill="#E0E0E0" FontFamily="Arial" FontSize="15"
+        FontStyle="Normal" FontWeight="Normal" Height="500.0"
+        HorizontalAlign="Left" Left="20.0" Name="Json" Opacity="1.0"
+        Stroke="#404040" TextDecoration="None" Top="80.0"
+        VerticalAlign="Top" Width="700.0"><![CDATA[Json]]><Bind
+            Name="Json.Value" PreventDefault="True"/>
+        <Script Name="Demo only" OnSignalChange="onSignal"><![CDATA[function onSignal(evt)
+{
+    var o = JSON.parse(evt.getValue());
+    
+    if (o) {
+        evt.getCurrentTarget().setAttribute("Content", JSON.stringify(o, null, 3));
+    }
+}]]></Script>
+    </TextBox>
+    <Component Clip="False" ComponentVersion="CheckBox-20170919-MIJA"
+        ContentHeight="20.0" ContentWidth="20.0" Height="20.0"
+        Left="250.0" Name="CheckBox_Load_SavedIdConfig" Top="20.0" Width="20.0">
+        <Script OnDocumentLoad="onLoad" OnMouseClick=""
+            OnMouseDown="onMouseDown" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp" OnSignalChange=""><![CDATA[function onLoad(evt) {
+    var node = evt.getCurrentTarget();
+    
+    // Toggle check
+    if (node.getChild("Checked").getAttribute("Visibility") == "Visible")
+        var value = 1;
+    else
+        var value = 0;
+    node.setAttribute("Checked", value);
+
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseOver(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Visible");
+}
+        	
+function onMouseOut(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseDown(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Unknown").setAttribute("Visibility", "Visible");
+}
+        	
+
+function onMouseUp(evt) {
+    if(evt.getButton() != 0) return;
+
+    var node = evt.getCurrentTarget();
+    var check = node.getChild("Checked");
+    
+    // Toggle check
+    if (check.getAttribute("Visibility") == "Hidden")
+        var value = 1;
+    else
+        var value = 0;
+    check.setAttribute("Visibility", value ? "Visible" : "Hidden");
+    node.setAttribute("Checked", value);
+    
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}]]></Script>
+        <Path Fill="#E0E0E0" Name="Unknown"
+            PathData="m18.773477,0.00544400003 l-0.6116080000000004,0.0 c-0.3985869899999983,0.0 -0.7713770000000011,0.198876003 -0.9935529960000018,0.530061 -1.3347219700000004,1.9920969999999998 -3.9642230000000005,5.96797004 -5.729151980000001,8.76140004 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099400000074 -0.09735899980000084,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.21052599200000088,-0.6032879970000007 -0.3836069930000008,-1.0726039800000002 -0.5267330000000001,-1.4270870000000002 -0.2662779910000008,-0.6448929920000008 -1.131684,-2.13106097 -2.13355698,-2.67609999 -0.5799880000000002,-0.3162060000000002 -1.30559695,-0.10151899600000025 -1.62346799,0.48013400200000067 -0.31454199900000024,0.5799880099999992 -0.0998539991999996,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600499999965,0.14395700799999922 0.8462670049999996,0.9577710009999993 1.0617870099999998,1.4761820199999995 0.12148900299999976,0.3062210039999993 0.2862499999999999,0.7522370019999993 0.48346200199999956,1.3180800599999998 0.4934480040000002,1.3946350299999999 1.0767640299999997,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.2429789969999998 4.218853039999999,-5.00187798 1.1982540099999994,-1.8939069800000006 2.7975900399999993,-4.342838 4.114837059999999,-6.333271 l0.0,13.3413936 -15.18454,0.0 0.0,-15.183709 9.88559603,0.0 c0.6607030040000001,0.0 1.1974220199999994,-0.536718 1.1974220199999994,-1.19658899 0.0,-0.661535 -0.5375510000000006,-1.19658899 -1.1974219700000006,-1.19658899 l-11.081353,0.0 c-0.660702998,0.0 -1.19658899,0.535886 -1.19658899,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718004,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350100000015,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665317998 -0.535054989999999,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible"/>
+        <Path Fill="#009B3E" Name="Box"
+            PathData="m17.62592,17.612537 l-15.22816,0.004628000019998524 0.0,-15.218082 9.907973,0.0 c0.6622000059999991,0.0 1.2001240099999997,-0.537933 1.2001240099999997,-1.199291 0.0,-0.663034 -0.538767,-1.199301 -1.2001240000000006,-1.199301 l-11.106444,0.0 c-0.662189,0.0 -1.19929,0.5371 -1.19929,1.199301 l0.0,17.615832 c0.0,0.6630339999999997 0.537934,1.1993019999999994 1.19929,1.1993019999999994 l17.616676,0.0 c0.6630339999999997,0.0 1.1993019999999994,-0.5371020000000009 1.1993019999999994,-1.1993019800000013 l0.004910999999999888,-17.615832 c0.011676000099999584,-0.654837 -0.5645360000000004,-1.198309 -1.1994730000000011,-1.199789 -0.6349359919999991,-0.001482 -1.2246260000000007,0.551732 -1.2124249800000015,1.195903 l0.007747999999999422,16.414517"
+            Stroke="None" StrokeDashArray="0.0" StrokeWidth="1.0"/>
+        <Path Fill="#009B3E" Name="Checked"
+            PathData="m18.773477,0.005444 l-0.6116080000000004,0.0 c-0.39858699299999856,0.0 -0.7713770000000011,0.198876 -0.9935529960000018,0.530061 -1.3347219900000002,1.9920969999999998 -3.9642230000000005,5.96797 -5.72915199,8.7614 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099500000082 -0.09735900000000086,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.2105259929999992,-0.6032879990000009 -0.3836069930000008,-1.0726040000000001 -0.5267330000000001,-1.4270870000000002 -0.2662779929999992,-0.6448929930000009 -1.131684,-2.13106099 -2.1335569900000007,-2.6761 -0.5799880000000002,-0.3162060000000002 -1.30559696,-0.10151899800000042 -1.623468,0.4801339999999996 -0.3145420000000003,0.5799880070000007 -0.09985399929999961,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600399999957,0.14395700699999914 0.8462670049999996,0.9577709999999993 1.0617869999999998,1.4761819999999997 0.1214890009999996,0.30622100199999913 0.2862499999999999,0.7522369999999992 0.48346200199999956,1.318080029999999 0.4934479999999999,1.3946350299999999 1.0767640099999998,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.24297900000000006 4.218853039999999,-5.001878 1.1982540099999994,-1.8939070000000005 2.7975900399999993,-4.342838 4.114837049999998,-6.333271 l0.0,13.341393299999998 -15.18454,0.0 0.0,-15.183709 9.885596,0.0 c0.6607029999999998,0.0 1.1974219999999995,-0.536718 1.1974219999999995,-1.196589 0.0,-0.661535 -0.5375510000000006,-1.196589 -1.1974219900000005,-1.196589 l-11.081353,0.0 c-0.660703,0.0 -1.196589,0.535886 -1.196589,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350070000012,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665318 -0.5350549929999993,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible">
+            <Expose ExposedAttribute="Visibility" Name="Checked"/>
+        </Path>
+        <Rectangle Fill="#FFFFFF" Height="21.0" Name="Hover"
+            Stroke="None" Visibility="Hidden" Width="20.0">
+            <LinearGradient EndPoint="0.0,2.0">
+                <GradientStop Color="None" Offset="0.0"/>
+                <GradientStop Color="#FFFFFF" Offset="1.0"/>
+            </LinearGradient>
+        </Rectangle>
+        <TargetArea Height="22.0" Left="-1.0" Top="-1.0" Width="22.0"/>
+        <Text FontFamily="Arial" FontSize="16" Left="25.0" Name="Label"
+                Top="1.0"><![CDATA[Ladda IdConfig]]><Expose
+                ExposedAttribute="Content" Name="Label"/>
+        </Text>
+        <Expose ExposedAttribute="Height" Name="Size"/>
+        <Expose ExposedAttribute="Width" Name="Size"/>
+    </Component>
+    <Component Clip="False" ComponentVersion="CheckBox-20170919-MIJA"
+        ContentHeight="20.0" ContentWidth="20.0" Height="20.0"
+        Left="400.0" Name="CheckBox_Load_SavedPositionConfig" Top="20.0" Width="20.0">
+        <Script OnDocumentLoad="onLoad" OnMouseClick=""
+            OnMouseDown="onMouseDown" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp" OnSignalChange=""><![CDATA[function onLoad(evt) {
+    var node = evt.getCurrentTarget();
+    
+    // Toggle check
+    if (node.getChild("Checked").getAttribute("Visibility") == "Visible")
+        var value = 1;
+    else
+        var value = 0;
+    node.setAttribute("Checked", value);
+
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseOver(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Visible");
+}
+        	
+function onMouseOut(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseDown(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Unknown").setAttribute("Visibility", "Visible");
+}
+        	
+
+function onMouseUp(evt) {
+    if(evt.getButton() != 0) return;
+
+    var node = evt.getCurrentTarget();
+    var check = node.getChild("Checked");
+    
+    // Toggle check
+    if (check.getAttribute("Visibility") == "Hidden")
+        var value = 1;
+    else
+        var value = 0;
+    check.setAttribute("Visibility", value ? "Visible" : "Hidden");
+    node.setAttribute("Checked", value);
+    
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}]]></Script>
+        <Path Fill="#E0E0E0" Name="Unknown"
+            PathData="m18.773477,0.00544400003 l-0.6116080000000004,0.0 c-0.3985869899999983,0.0 -0.7713770000000011,0.198876003 -0.9935529960000018,0.530061 -1.3347219700000004,1.9920969999999998 -3.9642230000000005,5.96797004 -5.729151980000001,8.76140004 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099400000074 -0.09735899980000084,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.21052599200000088,-0.6032879970000007 -0.3836069930000008,-1.0726039800000002 -0.5267330000000001,-1.4270870000000002 -0.2662779910000008,-0.6448929920000008 -1.131684,-2.13106097 -2.13355698,-2.67609999 -0.5799880000000002,-0.3162060000000002 -1.30559695,-0.10151899600000025 -1.62346799,0.48013400200000067 -0.31454199900000024,0.5799880099999992 -0.0998539991999996,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600499999965,0.14395700799999922 0.8462670049999996,0.9577710009999993 1.0617870099999998,1.4761820199999995 0.12148900299999976,0.3062210039999993 0.2862499999999999,0.7522370019999993 0.48346200199999956,1.3180800599999998 0.4934480040000002,1.3946350299999999 1.0767640299999997,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.2429789969999998 4.218853039999999,-5.00187798 1.1982540099999994,-1.8939069800000006 2.7975900399999993,-4.342838 4.114837059999999,-6.333271 l0.0,13.3413936 -15.18454,0.0 0.0,-15.183709 9.88559603,0.0 c0.6607030040000001,0.0 1.1974220199999994,-0.536718 1.1974220199999994,-1.19658899 0.0,-0.661535 -0.5375510000000006,-1.19658899 -1.1974219700000006,-1.19658899 l-11.081353,0.0 c-0.660702998,0.0 -1.19658899,0.535886 -1.19658899,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718004,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350100000015,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665317998 -0.535054989999999,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible"/>
+        <Path Fill="#009B3E" Name="Box"
+            PathData="m17.62592,17.612537 l-15.22816,0.004628000019998524 0.0,-15.218082 9.907973,0.0 c0.6622000059999991,0.0 1.2001240099999997,-0.537933 1.2001240099999997,-1.199291 0.0,-0.663034 -0.538767,-1.199301 -1.2001240000000006,-1.199301 l-11.106444,0.0 c-0.662189,0.0 -1.19929,0.5371 -1.19929,1.199301 l0.0,17.615832 c0.0,0.6630339999999997 0.537934,1.1993019999999994 1.19929,1.1993019999999994 l17.616676,0.0 c0.6630339999999997,0.0 1.1993019999999994,-0.5371020000000009 1.1993019999999994,-1.1993019800000013 l0.004910999999999888,-17.615832 c0.011676000099999584,-0.654837 -0.5645360000000004,-1.198309 -1.1994730000000011,-1.199789 -0.6349359919999991,-0.001482 -1.2246260000000007,0.551732 -1.2124249800000015,1.195903 l0.007747999999999422,16.414517"
+            Stroke="None" StrokeDashArray="0.0" StrokeWidth="1.0"/>
+        <Path Fill="#009B3E" Name="Checked"
+            PathData="m18.773477,0.005444 l-0.6116080000000004,0.0 c-0.39858699299999856,0.0 -0.7713770000000011,0.198876 -0.9935529960000018,0.530061 -1.3347219900000002,1.9920969999999998 -3.9642230000000005,5.96797 -5.72915199,8.7614 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099500000082 -0.09735900000000086,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.2105259929999992,-0.6032879990000009 -0.3836069930000008,-1.0726040000000001 -0.5267330000000001,-1.4270870000000002 -0.2662779929999992,-0.6448929930000009 -1.131684,-2.13106099 -2.1335569900000007,-2.6761 -0.5799880000000002,-0.3162060000000002 -1.30559696,-0.10151899800000042 -1.623468,0.4801339999999996 -0.3145420000000003,0.5799880070000007 -0.09985399929999961,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600399999957,0.14395700699999914 0.8462670049999996,0.9577709999999993 1.0617869999999998,1.4761819999999997 0.1214890009999996,0.30622100199999913 0.2862499999999999,0.7522369999999992 0.48346200199999956,1.318080029999999 0.4934479999999999,1.3946350299999999 1.0767640099999998,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.24297900000000006 4.218853039999999,-5.001878 1.1982540099999994,-1.8939070000000005 2.7975900399999993,-4.342838 4.114837049999998,-6.333271 l0.0,13.341393299999998 -15.18454,0.0 0.0,-15.183709 9.885596,0.0 c0.6607029999999998,0.0 1.1974219999999995,-0.536718 1.1974219999999995,-1.196589 0.0,-0.661535 -0.5375510000000006,-1.196589 -1.1974219900000005,-1.196589 l-11.081353,0.0 c-0.660703,0.0 -1.196589,0.535886 -1.196589,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350070000012,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665318 -0.5350549929999993,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible">
+            <Expose ExposedAttribute="Visibility" Name="Checked"/>
+        </Path>
+        <Rectangle Fill="#FFFFFF" Height="21.0" Name="Hover"
+            Stroke="None" Visibility="Hidden" Width="20.0">
+            <LinearGradient EndPoint="0.0,2.0">
+                <GradientStop Color="None" Offset="0.0"/>
+                <GradientStop Color="#FFFFFF" Offset="1.0"/>
+            </LinearGradient>
+        </Rectangle>
+        <TargetArea Height="22.0" Left="-1.0" Top="-1.0" Width="22.0"/>
+        <Text FontFamily="Arial" FontSize="16" Left="25.0" Name="Label"
+                Top="1.0"><![CDATA[Ladda PositionConfig]]><Expose
+                ExposedAttribute="Content" Name="Label"/>
+        </Text>
+        <Expose ExposedAttribute="Height" Name="Size"/>
+        <Expose ExposedAttribute="Width" Name="Size"/>
+    </Component>
+    <Component Clip="False" ComponentVersion="CheckBox-20170919-MIJA"
+        ContentHeight="20.0" ContentWidth="20.0" Height="20.0"
+        Left="250.0" Name="CheckBox_Load_SavedConfig" Top="50.0" Width="20.0">
+        <Script OnDocumentLoad="onLoad" OnMouseClick=""
+            OnMouseDown="onMouseDown" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp" OnSignalChange=""><![CDATA[function onLoad(evt) {
+    var node = evt.getCurrentTarget();
+    
+    // Toggle check
+    if (node.getChild("Checked").getAttribute("Visibility") == "Visible")
+        var value = 1;
+    else
+        var value = 0;
+    node.setAttribute("Checked", value);
+
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseOver(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Visible");
+}
+        	
+function onMouseOut(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseDown(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Unknown").setAttribute("Visibility", "Visible");
+}
+        	
+
+function onMouseUp(evt) {
+    if(evt.getButton() != 0) return;
+
+    var node = evt.getCurrentTarget();
+    var check = node.getChild("Checked");
+    
+    // Toggle check
+    if (check.getAttribute("Visibility") == "Hidden")
+        var value = 1;
+    else
+        var value = 0;
+    check.setAttribute("Visibility", value ? "Visible" : "Hidden");
+    node.setAttribute("Checked", value);
+    
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}]]></Script>
+        <Path Fill="#E0E0E0" Name="Unknown"
+            PathData="m18.773477,0.00544400003 l-0.6116080000000004,0.0 c-0.3985869899999983,0.0 -0.7713770000000011,0.198876003 -0.9935529960000018,0.530061 -1.3347219700000004,1.9920969999999998 -3.9642230000000005,5.96797004 -5.729151980000001,8.76140004 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099400000074 -0.09735899980000084,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.21052599200000088,-0.6032879970000007 -0.3836069930000008,-1.0726039800000002 -0.5267330000000001,-1.4270870000000002 -0.2662779910000008,-0.6448929920000008 -1.131684,-2.13106097 -2.13355698,-2.67609999 -0.5799880000000002,-0.3162060000000002 -1.30559695,-0.10151899600000025 -1.62346799,0.48013400200000067 -0.31454199900000024,0.5799880099999992 -0.0998539991999996,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600499999965,0.14395700799999922 0.8462670049999996,0.9577710009999993 1.0617870099999998,1.4761820199999995 0.12148900299999976,0.3062210039999993 0.2862499999999999,0.7522370019999993 0.48346200199999956,1.3180800599999998 0.4934480040000002,1.3946350299999999 1.0767640299999997,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.2429789969999998 4.218853039999999,-5.00187798 1.1982540099999994,-1.8939069800000006 2.7975900399999993,-4.342838 4.114837059999999,-6.333271 l0.0,13.3413936 -15.18454,0.0 0.0,-15.183709 9.88559603,0.0 c0.6607030040000001,0.0 1.1974220199999994,-0.536718 1.1974220199999994,-1.19658899 0.0,-0.661535 -0.5375510000000006,-1.19658899 -1.1974219700000006,-1.19658899 l-11.081353,0.0 c-0.660702998,0.0 -1.19658899,0.535886 -1.19658899,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718004,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350100000015,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665317998 -0.535054989999999,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible"/>
+        <Path Fill="#009B3E" Name="Box"
+            PathData="m17.62592,17.612537 l-15.22816,0.004628000019998524 0.0,-15.218082 9.907973,0.0 c0.6622000059999991,0.0 1.2001240099999997,-0.537933 1.2001240099999997,-1.199291 0.0,-0.663034 -0.538767,-1.199301 -1.2001240000000006,-1.199301 l-11.106444,0.0 c-0.662189,0.0 -1.19929,0.5371 -1.19929,1.199301 l0.0,17.615832 c0.0,0.6630339999999997 0.537934,1.1993019999999994 1.19929,1.1993019999999994 l17.616676,0.0 c0.6630339999999997,0.0 1.1993019999999994,-0.5371020000000009 1.1993019999999994,-1.1993019800000013 l0.004910999999999888,-17.615832 c0.011676000099999584,-0.654837 -0.5645360000000004,-1.198309 -1.1994730000000011,-1.199789 -0.6349359919999991,-0.001482 -1.2246260000000007,0.551732 -1.2124249800000015,1.195903 l0.007747999999999422,16.414517"
+            Stroke="None" StrokeDashArray="0.0" StrokeWidth="1.0"/>
+        <Path Fill="#009B3E" Name="Checked"
+            PathData="m18.773477,0.005444 l-0.6116080000000004,0.0 c-0.39858699299999856,0.0 -0.7713770000000011,0.198876 -0.9935529960000018,0.530061 -1.3347219900000002,1.9920969999999998 -3.9642230000000005,5.96797 -5.72915199,8.7614 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099500000082 -0.09735900000000086,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.2105259929999992,-0.6032879990000009 -0.3836069930000008,-1.0726040000000001 -0.5267330000000001,-1.4270870000000002 -0.2662779929999992,-0.6448929930000009 -1.131684,-2.13106099 -2.1335569900000007,-2.6761 -0.5799880000000002,-0.3162060000000002 -1.30559696,-0.10151899800000042 -1.623468,0.4801339999999996 -0.3145420000000003,0.5799880070000007 -0.09985399929999961,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600399999957,0.14395700699999914 0.8462670049999996,0.9577709999999993 1.0617869999999998,1.4761819999999997 0.1214890009999996,0.30622100199999913 0.2862499999999999,0.7522369999999992 0.48346200199999956,1.318080029999999 0.4934479999999999,1.3946350299999999 1.0767640099999998,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.24297900000000006 4.218853039999999,-5.001878 1.1982540099999994,-1.8939070000000005 2.7975900399999993,-4.342838 4.114837049999998,-6.333271 l0.0,13.341393299999998 -15.18454,0.0 0.0,-15.183709 9.885596,0.0 c0.6607029999999998,0.0 1.1974219999999995,-0.536718 1.1974219999999995,-1.196589 0.0,-0.661535 -0.5375510000000006,-1.196589 -1.1974219900000005,-1.196589 l-11.081353,0.0 c-0.660703,0.0 -1.196589,0.535886 -1.196589,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350070000012,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665318 -0.5350549929999993,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible">
+            <Expose ExposedAttribute="Visibility" Name="Checked"/>
+        </Path>
+        <Rectangle Fill="#FFFFFF" Height="21.0" Name="Hover"
+            Stroke="None" Visibility="Hidden" Width="20.0">
+            <LinearGradient EndPoint="0.0,2.0">
+                <GradientStop Color="None" Offset="0.0"/>
+                <GradientStop Color="#FFFFFF" Offset="1.0"/>
+            </LinearGradient>
+        </Rectangle>
+        <TargetArea Height="22.0" Left="-1.0" Top="-1.0" Width="22.0"/>
+        <Text FontFamily="Arial" FontSize="16" Left="25.0" Name="Label"
+                Top="1.0"><![CDATA[Ladda Config]]><Expose
+                ExposedAttribute="Content" Name="Label"/>
+        </Text>
+        <Expose ExposedAttribute="Height" Name="Size"/>
+        <Expose ExposedAttribute="Width" Name="Size"/>
+    </Component>
+    <Component Clip="False" ComponentVersion="CheckBox-20170919-MIJA"
+        ContentHeight="20.0" ContentWidth="20.0" Height="20.0"
+        Left="400.0" Name="CheckBox_Load_SavedSettings" Top="50.0" Width="20.0">
+        <Script OnDocumentLoad="onLoad" OnMouseClick=""
+            OnMouseDown="onMouseDown" OnMouseOut="onMouseOut"
+            OnMouseOver="onMouseOver" OnMouseUp="onMouseUp" OnSignalChange=""><![CDATA[function onLoad(evt) {
+    var node = evt.getCurrentTarget();
+    
+    // Toggle check
+    if (node.getChild("Checked").getAttribute("Visibility") == "Visible")
+        var value = 1;
+    else
+        var value = 0;
+    node.setAttribute("Checked", value);
+
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseOver(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Visible");
+}
+        	
+function onMouseOut(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}
+
+function onMouseDown(evt) {
+    var node = evt.getCurrentTarget();
+    node.getChild("Unknown").setAttribute("Visibility", "Visible");
+}
+        	
+
+function onMouseUp(evt) {
+    if(evt.getButton() != 0) return;
+
+    var node = evt.getCurrentTarget();
+    var check = node.getChild("Checked");
+    
+    // Toggle check
+    if (check.getAttribute("Visibility") == "Hidden")
+        var value = 1;
+    else
+        var value = 0;
+    check.setAttribute("Visibility", value ? "Visible" : "Hidden");
+    node.setAttribute("Checked", value);
+    
+    //Reset appearance
+    node.getChild("Hover").setAttribute("Visibility", "Hidden");
+    node.getChild("Unknown").setAttribute("Visibility", "Hidden");
+}]]></Script>
+        <Path Fill="#E0E0E0" Name="Unknown"
+            PathData="m18.773477,0.00544400003 l-0.6116080000000004,0.0 c-0.3985869899999983,0.0 -0.7713770000000011,0.198876003 -0.9935529960000018,0.530061 -1.3347219700000004,1.9920969999999998 -3.9642230000000005,5.96797004 -5.729151980000001,8.76140004 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099400000074 -0.09735899980000084,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.21052599200000088,-0.6032879970000007 -0.3836069930000008,-1.0726039800000002 -0.5267330000000001,-1.4270870000000002 -0.2662779910000008,-0.6448929920000008 -1.131684,-2.13106097 -2.13355698,-2.67609999 -0.5799880000000002,-0.3162060000000002 -1.30559695,-0.10151899600000025 -1.62346799,0.48013400200000067 -0.31454199900000024,0.5799880099999992 -0.0998539991999996,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600499999965,0.14395700799999922 0.8462670049999996,0.9577710009999993 1.0617870099999998,1.4761820199999995 0.12148900299999976,0.3062210039999993 0.2862499999999999,0.7522370019999993 0.48346200199999956,1.3180800599999998 0.4934480040000002,1.3946350299999999 1.0767640299999997,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.2429789969999998 4.218853039999999,-5.00187798 1.1982540099999994,-1.8939069800000006 2.7975900399999993,-4.342838 4.114837059999999,-6.333271 l0.0,13.3413936 -15.18454,0.0 0.0,-15.183709 9.88559603,0.0 c0.6607030040000001,0.0 1.1974220199999994,-0.536718 1.1974220199999994,-1.19658899 0.0,-0.661535 -0.5375510000000006,-1.19658899 -1.1974219700000006,-1.19658899 l-11.081353,0.0 c-0.660702998,0.0 -1.19658899,0.535886 -1.19658899,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718004,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350100000015,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665317998 -0.535054989999999,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible"/>
+        <Path Fill="#009B3E" Name="Box"
+            PathData="m17.62592,17.612537 l-15.22816,0.004628000019998524 0.0,-15.218082 9.907973,0.0 c0.6622000059999991,0.0 1.2001240099999997,-0.537933 1.2001240099999997,-1.199291 0.0,-0.663034 -0.538767,-1.199301 -1.2001240000000006,-1.199301 l-11.106444,0.0 c-0.662189,0.0 -1.19929,0.5371 -1.19929,1.199301 l0.0,17.615832 c0.0,0.6630339999999997 0.537934,1.1993019999999994 1.19929,1.1993019999999994 l17.616676,0.0 c0.6630339999999997,0.0 1.1993019999999994,-0.5371020000000009 1.1993019999999994,-1.1993019800000013 l0.004910999999999888,-17.615832 c0.011676000099999584,-0.654837 -0.5645360000000004,-1.198309 -1.1994730000000011,-1.199789 -0.6349359919999991,-0.001482 -1.2246260000000007,0.551732 -1.2124249800000015,1.195903 l0.007747999999999422,16.414517"
+            Stroke="None" StrokeDashArray="0.0" StrokeWidth="1.0"/>
+        <Path Fill="#009B3E" Name="Checked"
+            PathData="m18.773477,0.005444 l-0.6116080000000004,0.0 c-0.39858699299999856,0.0 -0.7713770000000011,0.198876 -0.9935529960000018,0.530061 -1.3347219900000002,1.9920969999999998 -3.9642230000000005,5.96797 -5.72915199,8.7614 -0.9952170000000002,1.5768690099999993 -1.6467670000000005,2.5487859999999998 -2.07198,3.147081 -0.0465990000000005,-0.12232099500000082 -0.09735900000000086,-0.25878999600000085 -0.15227900000000005,-0.41356399900000085 -0.2105259929999992,-0.6032879990000009 -0.3836069930000008,-1.0726040000000001 -0.5267330000000001,-1.4270870000000002 -0.2662779929999992,-0.6448929930000009 -1.131684,-2.13106099 -2.1335569900000007,-2.6761 -0.5799880000000002,-0.3162060000000002 -1.30559696,-0.10151899800000042 -1.623468,0.4801339999999996 -0.3145420000000003,0.5799880070000007 -0.09985399929999961,1.3064300099999997 0.4801339999999996,1.6226350099999998 0.26128600399999957,0.14395700699999914 0.8462670049999996,0.9577709999999993 1.0617869999999998,1.4761819999999997 0.1214890009999996,0.30622100199999913 0.2862499999999999,0.7522369999999992 0.48346200199999956,1.318080029999999 0.4934479999999999,1.3946350299999999 1.0767640099999998,2.750992 2.2866680099999996,2.750992 0.7896820009999992,0.0 1.2157280099999994,-0.24297900000000006 4.218853039999999,-5.001878 1.1982540099999994,-1.8939070000000005 2.7975900399999993,-4.342838 4.114837049999998,-6.333271 l0.0,13.341393299999998 -15.18454,0.0 0.0,-15.183709 9.885596,0.0 c0.6607029999999998,0.0 1.1974219999999995,-0.536718 1.1974219999999995,-1.196589 0.0,-0.661535 -0.5375510000000006,-1.196589 -1.1974219900000005,-1.196589 l-11.081353,0.0 c-0.660703,0.0 -1.196589,0.535886 -1.196589,1.196589 l0.0,17.576057 c0.0,0.6615360019999983 0.536718,1.1965910099999988 1.196589,1.1965910099999988 l17.57689,0.0 c0.6615350070000012,0.0 1.1965889999999995,-0.5358860000000014 1.1965889999999995,-1.1965910000000015 l0.0,-17.576056 c-1.9999999913977717E-6,-0.665318 -0.5350549929999993,-1.201204 -1.1965919800000009,-1.201204"
+            Stroke="None" Visibility="Visible">
+            <Expose ExposedAttribute="Visibility" Name="Checked"/>
+        </Path>
+        <Rectangle Fill="#FFFFFF" Height="21.0" Name="Hover"
+            Stroke="None" Visibility="Hidden" Width="20.0">
+            <LinearGradient EndPoint="0.0,2.0">
+                <GradientStop Color="None" Offset="0.0"/>
+                <GradientStop Color="#FFFFFF" Offset="1.0"/>
+            </LinearGradient>
+        </Rectangle>
+        <TargetArea Height="22.0" Left="-1.0" Top="-1.0" Width="22.0"/>
+        <Text FontFamily="Arial" FontSize="16" Left="25.0" Name="Label"
+                Top="1.0"><![CDATA[Ladda Settings]]><Expose
+                ExposedAttribute="Content" Name="Label"/>
+        </Text>
+        <Expose ExposedAttribute="Height" Name="Size"/>
+        <Expose ExposedAttribute="Width" Name="Size"/>
+    </Component>
+</Tgml>
